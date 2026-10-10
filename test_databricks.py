@@ -1,7 +1,9 @@
 import os
 
+from dotenv import load_dotenv
 from databricks import sql
 
+load_dotenv()
 
 server_hostname = os.environ["DATABRICKS_SERVER_HOSTNAME"]
 http_path = os.environ["DATABRICKS_HTTP_PATH"]

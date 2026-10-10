@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+PATIENT_STATUSES = ["waiting", "seeing", "done", "cancelled"]
+
+
 def get_connection():
     """
     Create a connection to Databricks SQL Warehouse.
@@ -27,7 +30,10 @@ def get_connection():
     )
 
 
-def execute_query(query: str) -> list[dict[str, Any]]:
+def execute_query(
+    query: str,
+    parameters: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     """
     Execute a SQL query and return rows as a list of dictionaries.
 
@@ -45,7 +51,7 @@ def execute_query(query: str) -> list[dict[str, Any]]:
 
     with get_connection() as connection:
         with connection.cursor() as cursor:
-            cursor.execute(query)
+            cursor.execute(query, parameters)
 
             if cursor.description is None:
                 return []
@@ -118,3 +124,26 @@ def get_patient_count() -> int:
         return 0
 
     return int(rows[0]["patient_count"])
+
+
+def update_patient_status(patient_id: str, status: str) -> None:
+    """
+    Update a patient's status with SQL UPDATE.
+    """
+
+    if status not in PATIENT_STATUSES:
+        raise ValueError(f"Invalid status: {status}")
+
+    query = """
+        UPDATE default.patients
+        SET status = :status
+        WHERE patient_id = :patient_id
+    """
+
+    execute_query(
+        query,
+        {
+            "status": status,
+            "patient_id": patient_id,
+        },
+    )

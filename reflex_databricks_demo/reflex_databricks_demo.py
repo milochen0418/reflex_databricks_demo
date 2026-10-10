@@ -1,5 +1,9 @@
 import reflex as rx
-from .databricks_client import get_patients
+from .databricks_client import (
+    PATIENT_STATUSES,
+    get_patients,
+    update_patient_status,
+)
 
 class State(rx.State):
     """The app state."""
@@ -19,13 +23,42 @@ class State(rx.State):
         except Exception as error:
             self.databricks_error = str(error)
 
+    @rx.event
+    def update_status(self, patient_id: str, status: str):
+        """Update a patient's status in Databricks."""
+
+        self.databricks_error = ""
+
+        try:
+            update_patient_status(patient_id, status)
+
+            self.patients = [
+                {**patient, "status": status}
+                if patient["patient_id"] == patient_id
+                else patient
+                for patient in self.patients
+            ]
+
+        except Exception as error:
+            self.databricks_error = str(error)
+
+
 def patient_row(patient: dict) -> rx.Component:
     return rx.table.row(
         rx.table.cell(patient["patient_id"]),
         rx.table.cell(patient["name"]),
         rx.table.cell(patient["department"]),
         rx.table.cell(patient["priority"]),
-        rx.table.cell(patient["status"]),
+        rx.table.cell(
+            rx.select(
+                PATIENT_STATUSES,
+                value=patient["status"].to(str),
+                on_change=lambda status: State.update_status(
+                    patient["patient_id"].to(str),
+                    status,
+                ),
+            )
+        ),
     )
 
 

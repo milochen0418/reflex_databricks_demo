@@ -2,6 +2,7 @@
 name = "reflex-databricks-demo"
 version = "0.1.0"
 description = ""
+license = "MIT"
 authors = []
 packages = [{include = "reflex_databricks_demo"}]
 

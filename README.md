@@ -68,3 +68,7 @@ Artifacts (screenshots/logs) are written to `testcases/<suite_name>/output/`.
 
 - **Reflex** 0.8.24
 - **Python 3.11**
+
+## License
+
+[MIT](LICENSE)

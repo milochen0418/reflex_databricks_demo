@@ -13,18 +13,35 @@ class State(rx.State):
     patients: list[dict[str, str | int]] = []
     databricks_error: str = ""
     updating_patient_ids: list[str] = []
+    is_loading: bool = False
 
-    @rx.event
-    def load_patients(self):
-        """Load patient data from Databricks."""
+    @rx.event(background=True)
+    async def load_patients(self):
+        """Load patient data from Databricks.
 
-        self.databricks_error = ""
+        Runs in the background so the page shows a loading indicator while
+        the (possibly slow) query is running.
+        """
+
+        async with self:
+            if self.is_loading:
+                return
+            self.is_loading = True
+            self.databricks_error = ""
 
         try:
-            self.patients = get_patients()
+            patients = await asyncio.to_thread(get_patients)
+
+            async with self:
+                self.patients = patients
 
         except Exception as error:
-            self.databricks_error = str(error)
+            async with self:
+                self.databricks_error = str(error)
+
+        finally:
+            async with self:
+                self.is_loading = False
 
     def _set_patient_status(self, patient_id: str, status: str):
         self.patients = [
@@ -117,9 +134,27 @@ def index() -> rx.Component:
                 "Patient data powered by Databricks"
             ),
 
-            rx.button(
-                "Refresh from Databricks",
-                on_click=State.load_patients,
+            rx.hstack(
+                rx.button(
+                    "Refresh from Databricks",
+                    loading=State.is_loading,
+                    on_click=State.load_patients,
+                ),
+                rx.cond(
+                    State.is_loading,
+                    rx.hstack(
+                        rx.spinner(size="2"),
+                        rx.text(
+                            "Loading patients from Databricks…",
+                            size="2",
+                            color_scheme="gray",
+                        ),
+                        align="center",
+                        spacing="2",
+                    ),
+                ),
+                align="center",
+                spacing="3",
             ),
 
             rx.cond(
@@ -149,6 +184,7 @@ def index() -> rx.Component:
                 ),
 
                 width="100%",
+                opacity=rx.cond(State.is_loading, "0.5", "1"),
             ),
 
             spacing="5",

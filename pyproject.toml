@@ -9,6 +9,8 @@ packages = [{include = "reflex_databricks_demo"}]
 [tool.poetry.dependencies]
 python = "~3.11"
 reflex = "0.8.24.post1"
+databricks-sql-connector = "^4.6.0"
+databricks-sdk = "^0.151.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

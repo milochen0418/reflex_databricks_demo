@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "reflex-databricks-demo"
+version = "0.1.0"
+description = ""
+authors = []
+packages = [{include = "reflex_databricks_demo"}]
+
+[tool.poetry.dependencies]
+python = "~3.11"
+reflex = "0.8.24.post1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+playwright = "^1.42.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

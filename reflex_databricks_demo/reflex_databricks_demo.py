@@ -7,13 +7,41 @@ from .databricks_client import (
     update_patient_status,
 )
 
+# Everyone who opens the app is linked to this token, so they all share
+# one PatientQueueState (no underscores allowed in the token).
+SHARED_QUEUE_TOKEN = "patient-queue"
+
+
 class State(rx.State):
-    """The app state."""
+    """Per-user state."""
+
+    databricks_error: str = ""
+
+
+class PatientQueueState(rx.SharedState):
+    """The patient queue, shared by every user of the app.
+
+    Changes made here (loaded rows, status updates, spinners) are pushed to
+    all connected users.
+    """
 
     patients: list[dict[str, str | int]] = []
-    databricks_error: str = ""
     updating_patient_ids: list[str] = []
     is_loading: bool = False
+    has_loaded: bool = False
+
+    @rx.event
+    async def join_queue(self):
+        """Link this user to the shared queue, loading it on first use."""
+
+        shared_queue = await self._link_to(SHARED_QUEUE_TOKEN)
+
+        if not shared_queue.has_loaded:
+            return PatientQueueState.load_patients
+
+    async def _set_error(self, message: str):
+        user_state = await self.get_state(State)
+        user_state.databricks_error = message
 
     @rx.event(background=True)
     async def load_patients(self):
@@ -24,20 +52,21 @@ class State(rx.State):
         """
 
         async with self:
+            await self._set_error("")
             if self.is_loading:
                 return
             self.is_loading = True
-            self.databricks_error = ""
 
         try:
             patients = await asyncio.to_thread(get_patients)
 
             async with self:
                 self.patients = patients
+                self.has_loaded = True
 
         except Exception as error:
             async with self:
-                self.databricks_error = str(error)
+                await self._set_error(str(error))
 
         finally:
             async with self:
@@ -60,7 +89,9 @@ class State(rx.State):
         """
 
         async with self:
-            self.databricks_error = ""
+            await self._set_error("")
+            if patient_id in self.updating_patient_ids:
+                return
             old_status = next(
                 (
                     patient["status"]
@@ -78,7 +109,7 @@ class State(rx.State):
         except Exception as error:
             async with self:
                 self._set_patient_status(patient_id, old_status)
-                self.databricks_error = str(error)
+                await self._set_error(str(error))
 
         finally:
             async with self:
@@ -86,7 +117,7 @@ class State(rx.State):
 
 
 def patient_row(patient: dict) -> rx.Component:
-    is_updating = State.updating_patient_ids.contains(
+    is_updating = PatientQueueState.updating_patient_ids.contains(
         patient["patient_id"].to(str)
     )
 
@@ -101,7 +132,7 @@ def patient_row(patient: dict) -> rx.Component:
                     PATIENT_STATUSES,
                     value=patient["status"].to(str),
                     disabled=is_updating,
-                    on_change=lambda status: State.update_status(
+                    on_change=lambda status: PatientQueueState.update_status(
                         patient["patient_id"].to(str),
                         status,
                     ),
@@ -137,11 +168,11 @@ def index() -> rx.Component:
             rx.hstack(
                 rx.button(
                     "Refresh from Databricks",
-                    loading=State.is_loading,
-                    on_click=State.load_patients,
+                    loading=PatientQueueState.is_loading,
+                    on_click=PatientQueueState.load_patients,
                 ),
                 rx.cond(
-                    State.is_loading,
+                    PatientQueueState.is_loading,
                     rx.hstack(
                         rx.spinner(size="2"),
                         rx.text(
@@ -178,13 +209,13 @@ def index() -> rx.Component:
 
                 rx.table.body(
                     rx.foreach(
-                        State.patients,
+                        PatientQueueState.patients,
                         patient_row,
                     )
                 ),
 
                 width="100%",
-                opacity=rx.cond(State.is_loading, "0.5", "1"),
+                opacity=rx.cond(PatientQueueState.is_loading, "0.5", "1"),
             ),
 
             spacing="5",
@@ -200,5 +231,5 @@ app = rx.App()
 app.add_page(
     index,
     route="/",
-    on_load=State.load_patients,
+    on_load=PatientQueueState.join_queue,
 )

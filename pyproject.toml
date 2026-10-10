@@ -11,6 +11,7 @@ python = "~3.11"
 reflex = "0.8.24.post1"
 databricks-sql-connector = "^4.6.0"
 databricks-sdk = "^0.151.0"
+python-dotenv = "^1.2.4"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

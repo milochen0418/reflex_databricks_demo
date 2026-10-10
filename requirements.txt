@@ -1,3 +1,4 @@
 reflex==0.8.24
 databricks-sql-connector>=4.6.0,<5
 databricks-sdk>=0.151.0,<0.152
+python-dotenv>=1.2.4,<2

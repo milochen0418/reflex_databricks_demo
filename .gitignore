@@ -1,13 +1,23 @@
 .web
 assets/external/
 .states
-*.py[cod]
-*.db
 .web/
 .states/
 __pycache__/
 /app/__pycache__/
 .playwright-mcp/
 
+# Mac
+.DS_Store
+
+# Python
+*.py[cod]
+*$py.class
+.env
+.venv/
+venv/
+*.db
+
 # E2E testcase artifacts
 testcases/**/output/
+reflex.log

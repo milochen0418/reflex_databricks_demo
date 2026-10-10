@@ -9,8 +9,11 @@ Requirements: **Python 3.11** and [Poetry](https://python-poetry.org/).
 
 ```bash
 poetry install                    # first time only (and after dependency changes)
+cp .env.template .env             # first time only, then fill in your Databricks values
 poetry run ./reflex_rerun.sh      # start / restart the app
 ```
+
+`.env` holds your Databricks connection (`DATABRICKS_SERVER_HOSTNAME`, `DATABRICKS_HTTP_PATH`). It is git-ignored, so never commit real values.
 
 Then open http://localhost:3000
 

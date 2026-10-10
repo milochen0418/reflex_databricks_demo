@@ -19,18 +19,68 @@ class State(rx.State):
         except Exception as error:
             self.databricks_error = str(error)
 
-
+def patient_row(patient: dict) -> rx.Component:
+    return rx.table.row(
+        rx.table.cell(patient["patient_id"]),
+        rx.table.cell(patient["name"]),
+        rx.table.cell(patient["department"]),
+        rx.table.cell(patient["priority"]),
+        rx.table.cell(patient["status"]),
+    )
 
 
 def index() -> rx.Component:
     return rx.container(
         rx.vstack(
-            rx.heading("Reflex Databricks Demo", size="9"),
-            rx.text("Blank Reflex project. Start building here."),
+            rx.heading(
+                "🏥 Patient Queue",
+                size="9",
+            ),
+
+            rx.text(
+                "Patient data powered by Databricks"
+            ),
+
+            rx.button(
+                "Refresh from Databricks",
+                on_click=State.load_patients,
+            ),
+
+            rx.cond(
+                State.databricks_error != "",
+                rx.text(
+                    State.databricks_error,
+                    color="red",
+                ),
+            ),
+
+            rx.table.root(
+                rx.table.header(
+                    rx.table.row(
+                        rx.table.column_header_cell("Patient ID"),
+                        rx.table.column_header_cell("Name"),
+                        rx.table.column_header_cell("Department"),
+                        rx.table.column_header_cell("Priority"),
+                        rx.table.column_header_cell("Status"),
+                    )
+                ),
+
+                rx.table.body(
+                    rx.foreach(
+                        State.patients,
+                        patient_row,
+                    )
+                ),
+
+                width="100%",
+            ),
+
             spacing="5",
-            justify="center",
-            min_height="85vh",
+            width="100%",
         ),
+
+        max_width="1000px",
+        padding="2em",
     )
 
 

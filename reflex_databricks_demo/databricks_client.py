@@ -1,7 +1,9 @@
 import os
+import threading
 from typing import Any
 
 from databricks import sql
+from databricks.sql.experimental.oauth_persistence import DevOnlyFilePersistence
 from dotenv import load_dotenv
 
 
@@ -9,6 +11,13 @@ load_dotenv()
 
 
 PATIENT_STATUSES = ["waiting", "seeing", "done", "cancelled"]
+
+# OAuth tokens are saved here so restarting the app does not ask to log in again.
+OAUTH_TOKEN_FILE = os.path.expanduser("~/.reflex_databricks_demo_oauth.json")
+
+# One shared connection, reused by every query (opening one triggers OAuth).
+_connection = None
+_connection_lock = threading.Lock()
 
 
 def get_connection():
@@ -27,7 +36,61 @@ def get_connection():
         server_hostname=server_hostname,
         http_path=http_path,
         auth_type="databricks-oauth",
+        experimental_oauth_persistence=DevOnlyFilePersistence(OAUTH_TOKEN_FILE),
     )
+
+
+def _get_shared_connection():
+    """
+    Return the shared connection, opening it on first use or after it closed.
+    """
+
+    global _connection
+
+    if _connection is None or not _connection.open:
+        _connection = get_connection()
+
+    return _connection
+
+
+def _reset_shared_connection() -> None:
+    """
+    Close and forget the shared connection so the next query reconnects.
+    """
+
+    global _connection
+
+    if _connection is not None:
+        try:
+            _connection.close()
+        except Exception:
+            pass
+
+    _connection = None
+
+
+def _run_query(
+    connection,
+    query: str,
+    parameters: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    with connection.cursor() as cursor:
+        cursor.execute(query, parameters)
+
+        if cursor.description is None:
+            return []
+
+        columns = [
+            column[0]
+            for column in cursor.description
+        ]
+
+        rows = cursor.fetchall()
+
+        return [
+            dict(zip(columns, row))
+            for row in rows
+        ]
 
 
 def execute_query(
@@ -36,6 +99,9 @@ def execute_query(
 ) -> list[dict[str, Any]]:
     """
     Execute a SQL query and return rows as a list of dictionaries.
+
+    Uses the shared connection; if it has gone stale (e.g. session expired),
+    reconnects once and retries.
 
     Example:
     [
@@ -49,24 +115,13 @@ def execute_query(
     ]
     """
 
-    with get_connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(query, parameters)
+    with _connection_lock:
+        try:
+            return _run_query(_get_shared_connection(), query, parameters)
 
-            if cursor.description is None:
-                return []
-
-            columns = [
-                column[0]
-                for column in cursor.description
-            ]
-
-            rows = cursor.fetchall()
-
-            return [
-                dict(zip(columns, row))
-                for row in rows
-            ]
+        except sql.exc.RequestError:
+            _reset_shared_connection()
+            return _run_query(_get_shared_connection(), query, parameters)
 
 
 def get_patients() -> list[dict[str, Any]]:

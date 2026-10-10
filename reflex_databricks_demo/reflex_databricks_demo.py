@@ -1,3 +1,5 @@
+import asyncio
+
 import reflex as rx
 from .databricks_client import (
     PATIENT_STATUSES,
@@ -10,6 +12,7 @@ class State(rx.State):
 
     patients: list[dict[str, str | int]] = []
     databricks_error: str = ""
+    updating_patient_ids: list[str] = []
 
     @rx.event
     def load_patients(self):
@@ -23,40 +26,80 @@ class State(rx.State):
         except Exception as error:
             self.databricks_error = str(error)
 
-    @rx.event
-    def update_status(self, patient_id: str, status: str):
-        """Update a patient's status in Databricks."""
+    def _set_patient_status(self, patient_id: str, status: str):
+        self.patients = [
+            {**patient, "status": status}
+            if patient["patient_id"] == patient_id
+            else patient
+            for patient in self.patients
+        ]
 
-        self.databricks_error = ""
+    @rx.event(background=True)
+    async def update_status(self, patient_id: str, status: str):
+        """Update a patient's status in Databricks.
+
+        Runs in the background so the row shows a spinner while the
+        (possibly slow) SQL UPDATE is running.
+        """
+
+        async with self:
+            self.databricks_error = ""
+            old_status = next(
+                (
+                    patient["status"]
+                    for patient in self.patients
+                    if patient["patient_id"] == patient_id
+                ),
+                status,
+            )
+            self._set_patient_status(patient_id, status)
+            self.updating_patient_ids.append(patient_id)
 
         try:
-            update_patient_status(patient_id, status)
-
-            self.patients = [
-                {**patient, "status": status}
-                if patient["patient_id"] == patient_id
-                else patient
-                for patient in self.patients
-            ]
+            await asyncio.to_thread(update_patient_status, patient_id, status)
 
         except Exception as error:
-            self.databricks_error = str(error)
+            async with self:
+                self._set_patient_status(patient_id, old_status)
+                self.databricks_error = str(error)
+
+        finally:
+            async with self:
+                self.updating_patient_ids.remove(patient_id)
 
 
 def patient_row(patient: dict) -> rx.Component:
+    is_updating = State.updating_patient_ids.contains(
+        patient["patient_id"].to(str)
+    )
+
     return rx.table.row(
         rx.table.cell(patient["patient_id"]),
         rx.table.cell(patient["name"]),
         rx.table.cell(patient["department"]),
         rx.table.cell(patient["priority"]),
         rx.table.cell(
-            rx.select(
-                PATIENT_STATUSES,
-                value=patient["status"].to(str),
-                on_change=lambda status: State.update_status(
-                    patient["patient_id"].to(str),
-                    status,
+            rx.hstack(
+                rx.select(
+                    PATIENT_STATUSES,
+                    value=patient["status"].to(str),
+                    disabled=is_updating,
+                    on_change=lambda status: State.update_status(
+                        patient["patient_id"].to(str),
+                        status,
+                    ),
                 ),
+                rx.cond(
+                    is_updating,
+                    rx.hstack(
+                        rx.spinner(size="2"),
+                        rx.text("Updating…", size="1", color_scheme="gray"),
+                        align="center",
+                        spacing="1",
+                    ),
+                ),
+                align="center",
+                spacing="2",
             )
         ),
     )

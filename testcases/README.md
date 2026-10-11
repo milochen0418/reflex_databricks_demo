@@ -19,7 +19,7 @@ The `run_test.py` script should:
 Use the repo-level runner (it manages starting/stopping the Reflex server and collecting artifacts):
 
 ```bash
-poetry run ./run_test_suite.sh smoke_home
+uv run ./run_test_suite.sh smoke_home
 ```
 
 Optional env vars:
@@ -31,5 +31,5 @@ Optional env vars:
 Example (headed + slow motion):
 
 ```bash
-HEADLESS=0 PW_SLOWMO_MS=100 poetry run ./run_test_suite.sh smoke_home
+HEADLESS=0 PW_SLOWMO_MS=100 uv run ./run_test_suite.sh smoke_home
 ```

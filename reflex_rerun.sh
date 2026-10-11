@@ -15,9 +15,9 @@ fi
 
 echo "Starting Reflex app with args: $@"
 
-# If this script is executed via `poetry run`, avoid nesting Poetry.
-if [ -n "${POETRY_ACTIVE:-}" ]; then
+# If this script is already running inside the uv-managed venv, avoid nesting uv.
+if [ -n "${VIRTUAL_ENV:-}" ]; then
   reflex run "$@"
 else
-  poetry run reflex run "$@"
+  uv run reflex run "$@"
 fi

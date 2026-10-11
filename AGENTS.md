@@ -11,26 +11,25 @@ Before making changes or running commands, **read all README.md files in this re
 
 If you already read them earlier in the session, **re-check** when unsure.
 
-## 1) Python / Poetry requirements (strict)
+## 1) Python / uv requirements (strict)
 
-This project targets **Python 3.11**. **Don't create the virtual environment of Python 3.14**
+This project targets **Python 3.11**. The version is pinned in `.python-version`, and uv is the package manager.
 
-- Prefer Poetry-managed environments.
-- If Poetry selected another Python (e.g. 3.12+), switch it:
+- Use the uv-managed environment (`.venv`) created by `uv sync`.
+- If uv picked another Python (e.g. 3.12+), re-create it:
 
 ```bash
-poetry env use python3.11
-poetry env info
-poetry install
+uv python install 3.11
+uv sync --python 3.11
 ```
 
-If `python3.11` is not available on PATH, use an absolute path to the 3.11 executable.
+If `python3.11` is not available on PATH, install it with `uv python install 3.11`.
 
-## 2) Default rule: use `poetry run` for scripts
+## 2) Default rule: use `uv run` for scripts
 
 When running any repo scripts, prefer:
 
-- `poetry run <command>`
+- `uv run <command>`
 
 This ensures the correct virtualenv + dependencies are used.
 
@@ -41,13 +40,13 @@ When you need to start/restart the Reflex app during development, **prefer the r
 Typical usage:
 
 ```bash
-poetry run ./reflex_rerun.sh
+uv run ./reflex_rerun.sh
 ```
 
 Notes:
-- Prefer `poetry run ./reflex_rerun.sh` over `poetry run reflex run`.
+- Prefer `uv run ./reflex_rerun.sh` over `uv run reflex run`.
 - This keeps the app startup/restart behavior consistent and helps it run stably on the expected ports: frontend `3000`, backend `8000`.
-- If you must run Reflex directly, still do it via Poetry: `poetry run reflex run`.
+- If you must run Reflex directly, still do it via uv: `uv run reflex run`.
 
 ## 4) Running E2E suites: prefer `run_test_suite.sh`
 
@@ -63,7 +62,7 @@ Instead, use the repo runner, which manages:
 Run a suite like this:
 
 ```bash
-poetry run ./run_test_suite.sh smoke_home
+uv run ./run_test_suite.sh smoke_home
 ```
 
 Optional environment variables (see `testcases/README.md`):

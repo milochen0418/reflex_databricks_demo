@@ -28,11 +28,11 @@ export OUTPUT_DIR
 REFLEX_LOG="$OUTPUT_DIR/reflex.log"
 TEST_LOG="$OUTPUT_DIR/test.log"
 
-run_in_poetry_env() {
-  if [[ -n "${POETRY_ACTIVE:-}" ]]; then
+run_in_env() {
+  if [[ -n "${VIRTUAL_ENV:-}" ]]; then
     "$@"
   else
-    poetry run "$@"
+    uv run "$@"
   fi
 }
 
@@ -54,7 +54,7 @@ echo "[runner] output_dir=$OUTPUT_DIR"
 echo "[runner] starting server via ./reflex_rerun.sh ..."
 (
   cd "$ROOT_DIR"
-  # Ensure we don't double-wrap poetry: reflex_rerun.sh already handles POETRY_ACTIVE.
+  # Ensure we don't double-wrap uv: reflex_rerun.sh already handles VIRTUAL_ENV.
   ./reflex_rerun.sh
 ) >"$REFLEX_LOG" 2>&1 &
 SERVER_PID=$!
@@ -85,7 +85,7 @@ fi
 
 echo "[runner] running test: $TEST_SCRIPT"
 set +e
-run_in_poetry_env python "$TEST_SCRIPT" >"$TEST_LOG" 2>&1
+run_in_env python "$TEST_SCRIPT" >"$TEST_LOG" 2>&1
 TEST_EXIT=$?
 set -e
 
